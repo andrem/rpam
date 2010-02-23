@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Rpam Copyright (c) 2008 Andre Osti de Moura <andreoandre@gmail.com>
+ * Rpam Copyright (c) 2008 Andre Osti de Moura
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ typedef struct {
 } pam_auth_t;
     
 static const char
-*rpam_servicename = "rpam";
+*rpam_servicename = "passwd";
 
 VALUE Rpam;
 
@@ -53,13 +53,15 @@ int auth_pam_talker(int num_msg,
 	struct pam_response *response = 0;
 
      /* parameter sanity checking */
-    if (!resp || !msg || !userinfo)
-        return PAM_CONV_ERR;
+	if (!resp || !msg || !userinfo) {
+	    return PAM_CONV_ERR;
+	}
 	
    	/* allocate memory to store response */
 	response = malloc(num_msg * sizeof(struct pam_response));
-	if (!response)
+	if (!response) {
 		return PAM_CONV_ERR;
+	}
 
 	/* copy values */
 	for (i = 0; i < num_msg; i++) {
@@ -76,6 +78,14 @@ int auth_pam_talker(int num_msg,
 			case PAM_PROMPT_ECHO_OFF:
 				response[i].resp = strdup(userinfo->pw);
 				break;
+		        case PAM_ERROR_MSG:
+				if (response) free(response);
+				rb_raise(rb_eRuntimeError, msg[i]->msg);
+				break;
+		        case PAM_TEXT_INFO:
+				if (response) free(response);
+				rb_raise(rb_eSecurityError, msg[i]->msg);
+				break;
 			default:
 				if (response)
 				free(response);
@@ -88,15 +98,23 @@ int auth_pam_talker(int num_msg,
 
 }
 
-/* Authenticates a user and returns TRUE on success, FALSE on failure */
-VALUE method_authpam(VALUE self, VALUE username, VALUE password) {	
+/*
+ * Authenticates a user and returns TRUE on success, FALSE on failure
+ * 
+ * authpam(username, password) -> boolean
+ * 
+ * raises RuntimeError in case of PAM error
+ * raises SecurityError in case of missing rights (e.g. run as non-root)
+ */
+
+VALUE method_authpam(VALUE self, VALUE username, VALUE password) {
     pam_auth_t userinfo = {NULL, NULL};
 	struct pam_conv conv_info = {&auth_pam_talker, (void *) &userinfo};
 	pam_handle_t *pamh = NULL;
 	int result;
 
-   	userinfo.name = STR2CSTR(username);
-	userinfo.pw =   STR2CSTR(password);
+   	userinfo.name = StringValuePtr(username);
+	userinfo.pw =   StringValuePtr(password);
  
 	if ((result = pam_start(rpam_servicename, userinfo.name, &conv_info, &pamh)) 
             != PAM_SUCCESS) {
@@ -124,5 +142,5 @@ VALUE method_authpam(VALUE self, VALUE username, VALUE password) {
 /* initialize */
 void Init_rpam() {
 	Rpam = rb_define_module("Rpam");
-	rb_define_method(Rpam, "authpam", method_authpam, 2);	
+	rb_define_module_function(Rpam, "authpam", method_authpam, 2);	
 }
