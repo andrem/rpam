@@ -27,7 +27,7 @@ typedef struct {
 } pam_auth_t;
     
 static const char
-*rpam_servicename = "passwd";
+*rpam_servicename = "rpam";
 
 VALUE Rpam;
 
