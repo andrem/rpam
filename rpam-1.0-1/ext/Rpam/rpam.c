@@ -95,8 +95,8 @@ VALUE method_authpam(VALUE self, VALUE username, VALUE password) {
 	pam_handle_t *pamh = NULL;
 	int result;
 
-   	userinfo.name = STR2CSTR(username);
-	userinfo.pw =   STR2CSTR(password);
+   	userinfo.name = StringValuePtr(username);
+	userinfo.pw =   StringValuePtr(password);
  
 	if ((result = pam_start(rpam_servicename, userinfo.name, &conv_info, &pamh)) 
             != PAM_SUCCESS) {
